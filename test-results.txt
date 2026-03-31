@@ -1,0 +1,5 @@
+Test Failed:
+{
+  "error": "Email not confirmed"
+}
+Request failed with status code 400
