@@ -8,10 +8,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function WebsiteDetailsPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const [website, setWebsite] = useState<any>(null);
-  const [siteData, setSiteData] = useState<any>({});
-  const [siteUsers, setSiteUsers] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [website, setWebsite] = useState<{ id: string; name: string; api_key?: string } | null>(null);
+  const [siteData, setSiteData] = useState<Record<string, { id: string; value: string }>>({});
+  const [siteUsers, setSiteUsers] = useState<{ id: string; username: string; email: string; school_id: string; status: string }[]>([]);
+  const [analytics, setAnalytics] = useState<{ total_visitors: number; total_logins: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Form State
@@ -45,8 +45,8 @@ export default function WebsiteDetailsPage() {
 
         const { data: kvData } = await supabase.from("site_data").select("*").eq("website_id", site.id);
         if (kvData) {
-          const mapped: any = {};
-          kvData.forEach((row: any) => mapped[row.key_name] = row);
+          const mapped: Record<string, { id: string; value: string }> = {};
+          kvData.forEach((row: { id: string; key_name: string; value: string }) => mapped[row.key_name] = row);
           setSiteData(mapped);
           setWelcomeText(mapped["welcome_text"]?.value || "");
           setLogoUrl(mapped["logo_url"]?.value || "");
@@ -59,7 +59,7 @@ export default function WebsiteDetailsPage() {
         const { data: analyticsData } = await supabase.from("analytics").select("*").eq("website_id", site.id).single();
         if (analyticsData) setAnalytics(analyticsData);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Supabase Error:", err);
       setDbError("حدث خطأ في الاتصال بقاعدة البيانات. تأكد من أنك قمت بإنشاء الجداول (SQL).");
     } finally {

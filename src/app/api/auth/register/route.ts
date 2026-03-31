@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       message: 'User registered successfully',
       user: data.user,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Internal Error' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Internal Error' }, { status: 500 });
   }
 }
