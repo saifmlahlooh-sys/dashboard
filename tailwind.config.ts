@@ -10,12 +10,12 @@ const config: Config = {
     extend: {
       colors: {
         coastal: {
-          darkest: "#061222",
-          dark: "#123249",
-          DEFAULT: "#2D5B75",
-          light: "#447794",
+          darkest: "#000000",
+          dark: "#111111",
+          DEFAULT: "#222222",
+          light: "#333333",
         },
-        background: "#061222",
+        background: "#000000",
         foreground: "#f3f4f6", // gray-100
       },
     },
