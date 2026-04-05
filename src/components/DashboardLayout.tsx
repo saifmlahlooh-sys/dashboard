@@ -20,10 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex bg-black text-gray-100 overflow-x-hidden relative">
       {/* Sidebar - Slide from right */}
-      <motion.aside
-        initial={{ x: "100%", opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 2.2 }}
+      <aside
         className="w-64 bg-zinc-950 fixed right-0 top-0 bottom-0 border-l border-zinc-900 flex flex-col z-40 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]"
       >
         <div className="p-6 border-b border-zinc-900">
@@ -62,15 +59,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               تسجيل الخروج
            </button>
         </div>
-      </motion.aside>
+      </aside>
 
       {/* Main Content */}
       <div className="flex-1 mr-64 flex flex-col min-h-screen">
         {/* Top Navbar - Slide down */}
-        <motion.header
-          initial={{ y: -100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 2.4 }}
+        <header
           className="h-16 bg-zinc-950 border-b border-zinc-900 flex items-center justify-between px-6 sticky top-0 z-30"
         >
           <div className="flex items-center gap-4">
@@ -87,13 +81,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               U
             </div>
           </div>
-        </motion.header>
+        </header>
 
         {/* Page Content - Fade and slide up */}
         <motion.main
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 2.6 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
           className="p-6 relative z-10"
         >
           {children}

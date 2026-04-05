@@ -1,233 +1,414 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Plus, Activity, ServerOff, Server, Loader2, Calendar } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  Plus,
+  Globe,
+  Loader2,
+  Calendar,
+  Key,
+  Copy,
+  Check,
+  ChevronLeft,
+  FolderOpen,
+} from "lucide-react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import toast, { Toaster } from "react-hot-toast";
+import Link from "next/link";
 
-type Project = {
+/* ── Types ── */
+type Website = {
   id: string;
   name: string;
-  status: "online" | "development" | "offline";
-  updated_at: string;
+  api_key: string;
+  created_at: string;
 };
 
+/* ── Animation variants ── */
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.96 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+/* ── Skeleton card ── */
+function SkeletonCard() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 min-h-[220px] animate-pulse">
+      <div className="flex justify-between items-start mb-5">
+        <div className="h-5 w-2/3 bg-white/5 rounded-lg" />
+        <div className="h-8 w-8 bg-white/5 rounded-lg" />
+      </div>
+      <div className="h-3 w-1/4 bg-white/[0.03] rounded mb-2" />
+      <div className="h-3 w-1/3 bg-white/[0.03] rounded mb-8" />
+      <div className="mt-auto h-11 w-full bg-white/[0.03] rounded-xl" />
+    </div>
+  );
+}
+
+/* ── Project card ── */
+function ProjectCard({
+  site,
+  idx,
+  copiedId,
+  onCopy,
+}: {
+  site: Website;
+  idx: number;
+  copiedId: string | null;
+  onCopy: (id: string, key: string) => void;
+}) {
+  const formatDate = (ds: string) =>
+    new Intl.DateTimeFormat("ar-EG", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(ds));
+
+  return (
+    <motion.div
+      variants={cardVariants}
+      whileHover={{
+        y: -8,
+        scale: 1.025,
+        boxShadow:
+          "0 0 40px rgba(255,255,255,0.04), 0 25px 60px rgba(0,0,0,0.7)",
+        transition: { duration: 0.3, ease: "easeOut" },
+      }}
+      className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] backdrop-blur-sm flex flex-col justify-between min-h-[220px] cursor-pointer"
+    >
+      {/* Animated gradient overlay on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+      {/* Top accent line */}
+      <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      {/* Corner glow */}
+      <div
+        className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at top right, rgba(255,255,255,0.06), transparent 70%)",
+        }}
+      />
+
+      <Link href={`/projects/${site.id}`} className="flex flex-col h-full p-6">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-3 relative z-10">
+          <h3
+            className="text-lg font-bold text-white/90 leading-tight group-hover:text-white transition-colors duration-300 flex-1 ml-2"
+            dir="auto"
+          >
+            {site.name}
+          </h3>
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+            <Globe size={16} className="text-emerald-400" />
+          </div>
+        </div>
+
+        {/* Status badge */}
+        <div className="flex items-center gap-2 mb-4 relative z-10">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+          <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest">
+            نشط
+          </span>
+        </div>
+
+        {/* Date */}
+        <div className="flex items-center gap-2 text-gray-600 text-xs font-mono mb-5 relative z-10">
+          <Calendar size={12} />
+          <span>{site.created_at ? formatDate(site.created_at) : "—"}</span>
+        </div>
+
+        {/* API Key row */}
+        <div className="mt-auto relative z-10">
+          <div className="flex items-center justify-between bg-black/40 border border-white/[0.06] rounded-xl px-3.5 py-2.5 gap-3 group-hover:border-white/10 transition-colors duration-300">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Key size={13} className="text-gray-600 shrink-0" />
+              <span
+                className="text-[11px] text-gray-600 font-mono truncate"
+                dir="ltr"
+              >
+                {site.api_key ? `${site.api_key.slice(0, 14)}•••` : "—"}
+              </span>
+            </div>
+            {site.api_key && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onCopy(site.id, site.api_key);
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/5 text-gray-600 hover:text-gray-300 transition-colors shrink-0"
+              >
+                {copiedId === site.id ? (
+                  <Check size={13} className="text-emerald-400" />
+                ) : (
+                  <Copy size={13} />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* View details hint */}
+        <div className="mt-3 flex items-center gap-1 text-gray-700 group-hover:text-gray-400 text-[11px] font-mono transition-colors duration-300 relative z-10">
+          <ChevronLeft size={11} />
+          <span>عرض التفاصيل</span>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
+/* ── Main page ── */
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectStatus, setNewProjectStatus] = useState<"online" | "development" | "offline">("development");
+  const [newName, setNewName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(gridRef, { once: true, amount: 0.1 });
 
   useEffect(() => {
-    fetchProjects();
+    fetchWebsites();
   }, []);
 
-  const fetchProjects = async () => {
+  const fetchWebsites = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("updated_at", { ascending: false });
-
-      if (error) {
-         // Fallback if table doesn't exist yet for demonstration based on user request
-         if (error.code === '42P01') {
-            setProjects([{ id: '1', name: 'مدرسة المفرق الأساسية الأولى للبنين', status: 'online', updated_at: new Date().toISOString() }]);
-         } else {
-            throw error;
-         }
-      } else {
-         setProjects(data as Project[]);
+      if (!supabase) {
+        toast.error("Supabase not configured");
+        return;
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to fetch projects");
+      const { data, error } = await supabase
+        .from("websites")
+        .select("id, name, api_key, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setWebsites(data as Website[]);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch websites";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddProject = async (e: FormEvent) => {
+  const handleAddWebsite = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) {
-      toast.error("Project name is required");
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error("اسم المشروع مطلوب");
       return;
     }
-
     try {
       setIsSubmitting(true);
-      const newEntry = {
-        name: newProjectName.trim(),
-        status: newProjectStatus,
-        updated_at: new Date().toISOString()
-      };
-
+      if (!supabase) {
+        toast.error("Supabase not configured");
+        return;
+      }
       const { data, error } = await supabase
-        .from("projects")
-        .insert([newEntry])
-        .select()
+        .from("websites")
+        .insert([{ name: trimmed }])
+        .select("id, name, api_key, created_at")
         .single();
 
-      if (error) {
-         // Mock update if table missing during dev
-         if (error.code === '42P01') {
-             setProjects(prev => [ { id: Math.random().toString(), ...newEntry }, ...prev ]);
-             toast.success("Project added successfully (Mock)");
-         } else {
-             throw error;
-         }
-      } else {
-         setProjects(prev => [data as Project, ...prev]);
-         toast.success("Project added successfully");
-      }
-      
-      setNewProjectName("");
-      setNewProjectStatus("development");
+      if (error) throw error;
+      setWebsites((prev) => [data as Website, ...prev]);
+      toast.success("تم إضافة المشروع بنجاح ✨");
+      setNewName("");
       setShowAddForm(false);
-    } catch (error: any) {
-      toast.error(error.message || "Error adding project");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "خطأ في إضافة المشروع";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('ar-EG', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+  const copyApiKey = (id: string, key: string) => {
+    navigator.clipboard.writeText(key);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast.success("تم نسخ مفتاح API");
   };
 
   return (
     <DashboardLayout>
-      <Toaster position="bottom-right" toastOptions={{
-        style: { background: '#18181b', color: '#fff', border: '1px solid #27272a' }
-      }} />
-      <div className="space-y-6 max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "#111",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "12px",
+            fontSize: "14px",
+          },
+        }}
+      />
+
+      <div className="space-y-8 max-w-6xl mx-auto">
+        {/* ── Page Header ── */}
+        <div className="flex justify-between items-end">
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight font-mono mb-2">PROJECTS_</h2>
-            <p className="text-gray-400">إدارة وعرض المشاريع المتصلة بقاعدة البيانات</p>
+            <p className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.3em] mb-3">
+              المشاريع
+            </p>
+            <h2 className="text-3xl font-bold text-white tracking-tight mb-1">
+              مركز المشاريع
+            </h2>
+            <p className="text-gray-500 text-sm">
+              إدارة وعرض المشاريع المتصلة بقاعدة البيانات
+            </p>
           </div>
-          <button 
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-white hover:bg-zinc-200 text-black px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg"
+            className="flex items-center gap-2 bg-white hover:bg-gray-100 text-black px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg"
           >
-            <Plus size={18} className={showAddForm ? "rotate-45 transition-transform" : "transition-transform"} />
-            {showAddForm ? 'إلغاء' : 'إضافة مشروع'}
-          </button>
+            <motion.span
+              animate={{ rotate: showAddForm ? 45 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="inline-block"
+            >
+              <Plus size={16} />
+            </motion.span>
+            {showAddForm ? "إلغاء" : "إضافة مشروع"}
+          </motion.button>
         </div>
 
+        {/* ── Add Project Form ── */}
         <AnimatePresence>
           {showAddForm && (
-            <motion.form 
-              initial={{ opacity: 0, height: 0, y: -20 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -20, overflow: 'hidden' }}
-              onSubmit={handleAddProject}
-              className="bg-black border border-zinc-800 p-6 rounded-xl mb-8 shadow-[0_0_30px_rgba(255,255,255,0.02)]"
+            <motion.form
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10, overflow: "hidden" }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              onSubmit={handleAddWebsite}
+              className="border border-white/[0.07] bg-white/[0.02] rounded-2xl p-6 backdrop-blur-sm overflow-hidden"
             >
-              <h3 className="text-xl font-bold text-white mb-6 font-mono">NEW_PROJECT.config</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Project Name</label>
-                  <input 
-                    type="text" 
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    placeholder="Enter project name..."
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-zinc-500 transition-colors font-mono"
-                    dir="auto"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Initial Status</label>
-                  <select 
-                    value={newProjectStatus}
-                    onChange={(e) => setNewProjectStatus(e.target.value as any)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-zinc-500 transition-colors font-mono appearance-none"
-                    dir="ltr"
-                  >
-                    <option value="online">ONLINE</option>
-                    <option value="development">DEVELOPMENT</option>
-                    <option value="offline">OFFLINE</option>
-                  </select>
-                </div>
+              <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
+                <FolderOpen size={16} className="text-gray-400" />
+                مشروع جديد
+              </h3>
+              <div className="mb-5">
+                <label className="block text-[10px] font-mono text-gray-600 uppercase tracking-[0.2em] mb-2">
+                  اسم المشروع
+                </label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="مثال: مدرسة المفرق الأساسية..."
+                  className="w-full bg-black/50 border border-white/[0.07] rounded-xl px-4 py-3 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-white/20 transition-colors"
+                  dir="auto"
+                  autoFocus
+                />
               </div>
               <div className="flex justify-end">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={isSubmitting}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-white px-8 py-3 rounded-lg font-bold font-mono transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="bg-white hover:bg-gray-100 text-black px-6 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                  DEPLOY
+                  {isSubmitting ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Plus size={15} />
+                  )}
+                  نشر المشروع
                 </button>
               </div>
             </motion.form>
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {loading ? (
-             // Skeleton Loader
-             [1, 2, 3].map((n) => (
-               <div key={n} className="bg-zinc-950 border border-zinc-900 rounded-xl p-6 h-[200px] animate-pulse">
-                 <div className="flex justify-between items-start mb-4">
-                   <div className="h-6 w-3/4 bg-zinc-800 rounded"></div>
-                   <div className="h-6 w-6 bg-zinc-800 rounded-full"></div>
-                 </div>
-                 <div className="h-4 w-1/4 bg-zinc-800 rounded mb-8"></div>
-                 <div className="mt-auto h-12 w-full bg-zinc-900 rounded-lg"></div>
-               </div>
-             ))
-           ) : projects.length === 0 ? (
-              <div className="col-span-full py-12 text-center border border-zinc-900 rounded-xl bg-black border-dashed">
-                <span className="text-zinc-500 font-mono tracking-widest">NO_PROJECTS_FOUND</span>
-                <p className="text-zinc-400 mt-2">Start by adding your first project to the database.</p>
+        {/* ── Cards Grid ── */}
+        <div ref={gridRef}>
+          {loading ? (
+            /* Skeleton state */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1, 2, 3].map((n) => (
+                <SkeletonCard key={n} />
+              ))}
+            </div>
+          ) : websites.length === 0 ? (
+            /* Empty state */
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-24 border border-dashed border-white/[0.06] rounded-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.06] rounded-2xl flex items-center justify-center mb-5">
+                <FolderOpen size={28} className="text-gray-700" />
               </div>
-           ) : (
-             projects.map((proj, idx) => (
-               <motion.div
-                 key={proj.id}
-                 initial={{ opacity: 0, y: 15 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 transition={{ delay: idx * 0.1 }}
-                 className="bg-zinc-950 border border-zinc-900 rounded-xl p-6 transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,255,255,0.03)] flex flex-col justify-between min-h-[200px]"
-               >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-white leading-tight" dir="auto">{proj.name}</h3>
-                    {proj.status === "online" && <Activity size={24} className="text-emerald-500 shrink-0 shadow-emerald-500/20 drop-shadow-lg" />}
-                    {proj.status === "development" && <Server size={24} className="text-amber-500 shrink-0 shadow-amber-500/20 drop-shadow-lg" />}
-                    {proj.status === "offline" && <ServerOff size={24} className="text-red-500 shrink-0 shadow-red-500/20 drop-shadow-lg" />}
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-zinc-500 font-mono text-xs mb-6">
-                    <Calendar size={14} />
-                    <span>{proj.updated_at ? formatDate(proj.updated_at) : 'Unknown'}</span>
-                  </div>
-                  
-                  <div className="mt-auto flex justify-between items-center bg-black p-3 rounded-lg border border-zinc-800/50">
-                    <span className="text-xs text-zinc-500 font-mono uppercase tracking-widest">State</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${
-                        proj.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 
-                        proj.status === 'development' ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
-                      }`}></span>
-                      <span className={`text-xs font-bold font-mono tracking-widest uppercase ${
-                        proj.status === 'online' ? 'text-white' : 
-                        proj.status === 'development' ? 'text-zinc-300' : 'text-zinc-400'
-                      }`}>
-                        {proj.status}
-                      </span>
-                    </div>
-                  </div>
-               </motion.div>
-             ))
-           )}
+              <p className="text-white font-semibold mb-2">لا توجد مشاريع بعد</p>
+              <p className="text-gray-600 text-sm mb-6">
+                ابدأ بإضافة أول مشروع إلى قاعدة البيانات
+              </p>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="text-sm font-semibold text-white border border-white/10 px-5 py-2 rounded-full hover:bg-white/5 transition-all"
+              >
+                إضافة مشروع ←
+              </button>
+            </motion.div>
+          ) : (
+            /* Projects grid */
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate={isInView ? "visible" : "hidden"}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+            >
+              {websites.map((site, idx) => (
+                <ProjectCard
+                  key={site.id}
+                  site={site}
+                  idx={idx}
+                  copiedId={copiedId}
+                  onCopy={copyApiKey}
+                />
+              ))}
+            </motion.div>
+          )}
         </div>
+
+        {/* Project count footer */}
+        {!loading && websites.length > 0 && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-[11px] font-mono text-gray-700 text-left"
+            dir="ltr"
+          >
+            {websites.length} project{websites.length !== 1 ? "s" : ""} synced
+            from Supabase
+          </motion.p>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -1,42 +1,51 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Lightweight auth guard — runs only on matched routes
 export function middleware(req: NextRequest) {
-  const isDashboardRoute = req.nextUrl.pathname.startsWith('/dashboard') || 
-                           req.nextUrl.pathname.startsWith('/sites') || 
-                           req.nextUrl.pathname.startsWith('/messages') || 
-                           req.nextUrl.pathname.startsWith('/settings');
+  try {
+    const { pathname } = req.nextUrl;
 
-  // Verify dashboard routes protectively
-  if (isDashboardRoute) {
-    const token = req.cookies.get('dashboard_pin_auth');
-    
-    // If no token exists, immediately redirect to login
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', req.url));
+    const isDashboardRoute =
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/projects') ||
+      pathname.startsWith('/sites') ||
+      pathname.startsWith('/messages') ||
+      pathname.startsWith('/settings') ||
+      pathname.startsWith('/tasks') ||
+      pathname.startsWith('/snippets');
+
+    if (isDashboardRoute) {
+      const token = req.cookies.get('dashboard_pin_auth');
+      if (!token) {
+        return NextResponse.redirect(new URL('/login', req.url));
+      }
+      return NextResponse.next();
     }
-  }
 
-  // If going to login but already authenticated, redirect to dashboard
-  if (req.nextUrl.pathname === '/login') {
-     const token = req.cookies.get('dashboard_pin_auth');
-     if (token) {
+    // Already authenticated → skip login page
+    if (pathname === '/login') {
+      const token = req.cookies.get('dashboard_pin_auth');
+      if (token) {
         return NextResponse.redirect(new URL('/dashboard', req.url));
-     }
-  }
+      }
+      return NextResponse.next();
+    }
 
-  return NextResponse.next();
+    return NextResponse.next();
+  } catch (error) {
+    // In case of any unexpected middleware error, default to proceeding
+    console.error("Middleware error:", error);
+    return NextResponse.next();
+  }
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Run ONLY on page routes — skip all static assets, images, API, fonts.
+     * This avoids middleware overhead on every _next/static request.
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ]
+    '/(dashboard|projects|sites|messages|settings|tasks|snippets|login)(.*)',
+  ],
 };
